@@ -1,0 +1,20 @@
+# keywords: int, print
+# operators: =, +, -, *, /
+# groupings
+
+x = 10;
+x = 2 + 10 * 2;
+y;
+y = (x / 10 + 0.3) * 2;
+y = y + 2;
+x = x;
+x = x * x * y;
+print x;
+print y;
+
+# (decl x 10)
+# (assign x (PLUS 2 (STAR 10 2)))
+# (decl y)
+# (assign y (STAR (grouping (PLUS (SLASH x 10) 0.3)) 2))
+# (print x)
+# (print y)

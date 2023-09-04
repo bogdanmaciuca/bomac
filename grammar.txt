@@ -1,0 +1,8 @@
+print    -> "print" expr ";"
+assign   -> IDENTIFIER "=" expr ";"
+expr     -> term
+term     -> factor (("+" | "-") factor)*
+factor   -> unary (("*" | "/") unary)*
+unary    -> ("!" | "-") (unary | primary)
+primary  -> NUMBER | IDENTIFIER | grouping
+grouping -> "(" expr ")"

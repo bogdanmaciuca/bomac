@@ -80,7 +80,8 @@ void PrintStmt::Evaluate() {
 
 void BlockStmt::Evaluate() {
 	Environment *prev = environment;
-	environment = new Environment;
+	environment = new Environment(environment);
+	
 	for (Stmt* stmt : statements)
 		stmt->Evaluate();
 	environment = prev;

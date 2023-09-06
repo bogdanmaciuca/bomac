@@ -1,6 +1,5 @@
 /*
 TODO:
-- better error handling (remember exact position of the character and output line to pinpoint it, panic mode recovery)
 */
 
 #include "util.h"
@@ -12,7 +11,7 @@ TODO:
 std::string ReadFile(const char* filename) {
 	std::ifstream file(filename);
 	if (!file.is_open()) {
-		Error(0, "Could not open file: " + std::string(filename));
+		GenericError("Could not open file: " + std::string(filename));
 		exit(0); // TODO: proper exit codes
 	}
 	std::string result, line;
@@ -28,9 +27,13 @@ int main(int argc, char **argv) {
 	if (argc > 1) {
 		lexer.Lex(ReadFile(argv[1]));
 		parser.Parse(lexer.tokens);
-		
+
+		//for(auto tok : lexer.tokens) {
+		//	std::cout << tok.str() << "\n";
+		//}
 		if (!parser.HadError()) {
 			for(int i = 0; i < parser.statements.size(); i++) {
+				//std::cout << parser.statements[i]->Str() << "\n";
 				parser.statements[i]->Evaluate();
 				parser.statements[i]->Destroy();
 			}
@@ -48,7 +51,7 @@ int main(int argc, char **argv) {
 			//}
 			if (!parser.HadError()) {
 				for(int i = 0; i < parser.statements.size(); i++) {
-					std::cout << parser.statements[i]->Str() << "\n";
+					//std::cout << parser.statements[i]->Str() << "\n";
 					parser.statements[i]->Evaluate();
 					parser.statements[i]->Destroy();
 				}

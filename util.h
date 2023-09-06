@@ -17,8 +17,8 @@ typedef uint32_t u32;
 typedef int64_t i64;
 typedef uint64_t u64;
 
-void Error(u16 line, const std::string &message) {
-	std::cout << "Error on line " << line << ": " << message << "\n";
+void GenericError(const std::string &message) {
+	std::cout << "Error: " << message << "\n";
 }
 void ErrorRT(u16 line, const std::string &message) {
 	std::cout << "Runtime error on line " << line << ": " << message << "\n";

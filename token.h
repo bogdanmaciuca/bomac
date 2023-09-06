@@ -16,7 +16,7 @@ enum class TokenType {
 	LEFT_BRACKET, RIGHT_BRACKET,
 	LEFT_BRACE, RIGHT_BRACE,
 
-	IDENTIFIER, SEMICOLON, IF, WHILE, FOR,
+	IDENTIFIER, SEMICOLON, IF, ELSE, WHILE, FOR,
 	VAR, PRINT, TRUE, FALSE, AND, OR,
 	CLASS, FN, RETURN, NUMBER, STRING
 };
@@ -53,6 +53,7 @@ struct Token {
 			case TokenType::SEMICOLON: type_str = "COLON"; break;
 			case TokenType::VAR: type_str = "VAR"; break;
 			case TokenType::IF: type_str = "IF"; break;
+			case TokenType::ELSE: type_str = "ELSE"; break;
 			case TokenType::WHILE: type_str = "WHILE"; break;
 			case TokenType::FOR: type_str = "FOR"; break;
 			case TokenType::PRINT: type_str = "PRINT"; break;

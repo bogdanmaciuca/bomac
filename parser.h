@@ -4,6 +4,7 @@
 #include "util.h"
 #include "AST.h"
 #include <initializer_list>
+#include <stdexcept>
 
 class Parser {
 private:
@@ -20,8 +21,12 @@ public:
 		had_error = false;
 		statements.clear();
 		while(!AtEnd()) {
-			statements.push_back(Declaration());
-			if (had_error) Synchronize();
+			try {
+				statements.push_back(Declaration());
+			}
+			catch (std::exception e) {
+				Synchronize();
+			}
 		}
 	}
 private:
@@ -40,8 +45,6 @@ private:
 			case TokenType::PRINT:
 			case TokenType::RETURN:
 				return;
-			default:
-				break;
 			}
 			Advance();
 		}
@@ -50,18 +53,52 @@ private:
 		return Assignment();
 	}
 	Expr* Assignment() {
-		Expr *expr = Equality();
+		Expr *expr = IfExpression();
 
 		if (Match({TokenType::EQUAL})) {
 			Token equals = Prev();
-			Expr *value = Assignment();
+			Expr *value = IfExpression();
 
 			if (expr->Type() == NodeType::VAR_EXPR) {
 				Token identifier = ((VarExpr*)expr)->identifier;
 				return new AssignExpr(identifier, value);
 			}
 
-			Error(equals.line, "Invalid l-value."); 
+			Error(equals.line, "Invalid l-value.");
+			throw std::runtime_error("Parser error");
+			had_error = true;
+		}
+		return expr;
+	}
+	Expr* IfExpression() {
+		if (Match({TokenType::IF})) {
+			Consume(TokenType::LEFT_PAREN, "Expected '(' after 'if'.");
+			Expr* condition = Expression();
+			Consume(TokenType::RIGHT_PAREN, "Expected ')' after condition.");
+
+			Expr* then_branch = Expression();
+			Consume(TokenType::ELSE, "Expected 'else' after first branch of the 'if' expression.");
+			Expr* else_branch = Expression();
+			
+			return new IfExpr(condition, then_branch, else_branch);
+		}
+		return Or();
+	}
+	Expr* Or() {
+		Expr* expr = And();
+		while (Match({TokenType::OR})) {
+			Token op = Prev();
+			Expr* right = And();
+			expr = new LogicExpr(op, expr, right);
+		}
+		return expr;
+	}
+	Expr* And() {
+		Expr* expr = Equality();
+		while (Match({TokenType::AND})) {
+			Token op = Prev();
+			Expr* right = Equality();
+			expr = new LogicExpr(op, expr, right);
 		}
 		return expr;
 	}
@@ -133,7 +170,11 @@ private:
 			Consume(TokenType::RIGHT_PAREN, "Expected ')' after expression.");
 			return new GroupExpr(expr);
 		}
-		return 0; // Unreachable unless an error is made by the user
+		Advance();
+		Error(Prev().line, "Unexpected token: '" + Prev().lexeme + "'.");
+		had_error = true;
+		throw std::runtime_error("Parser error");
+		return new LiteralExpr(Object(0.0f)); // Placeholder expression so parser doesn't crash
 	}
 	Stmt* Declaration() {
 		if (Match({TokenType::VAR}))
@@ -154,6 +195,9 @@ private:
 			return Print();
 		if (Match({TokenType::LEFT_BRACE}))
 			return new BlockStmt(Block());
+		if (Match({TokenType::IF}))
+			return If();
+
 		return ExpressionStmt();
 	}
 	std::vector<Stmt*> Block() {
@@ -172,6 +216,18 @@ private:
 		Expr *expr = Expression();
 		Consume(TokenType::SEMICOLON, "Expected ';' after expression.");
 		return new ExprStmt(expr);
+	}
+	Stmt* If() {
+		Consume(TokenType::LEFT_PAREN, "Expected '(' after 'if'.");
+		Expr* condition = Expression();
+		Consume(TokenType::RIGHT_PAREN, "Expected ')' after condition.");
+
+		Stmt* then_branch = Statement();
+		Stmt* else_branch = 0;
+		if (Match({TokenType::ELSE}))
+			else_branch = Statement();
+		
+		return new IfStmt(condition, then_branch, else_branch);
 	}
 	bool AtEnd() {
 		return Peek().type == TokenType::EOF;
@@ -201,12 +257,15 @@ private:
 		}
 		return false;
 	}
-	Token Consume(TokenType type, const std::string& message, bool panic_mode = true) {
+	void Error(u16 line, const std::string &message) {
+		std::cout << "Error on line " << line << ": " << message << "\n";
+		throw std::runtime_error(message);
+		had_error = true;
+	}
+	Token Consume(TokenType type, const std::string& message) {
 		if (Check(type))
 			return Advance();
 		Error(Peek().line, message);
-		had_error = true;
-		if (panic_mode) Synchronize();
 		return Token();
 	}
 };

@@ -1,30 +1,5 @@
-# variable declarations
-var a;
-a = 2;
-var b = a * 2;
-var string1 = "Hello World";
-var string2 = "Line 1
- and line 2";
-var ok = true;
-var c;
-print a;
-print b;
-print c;
+if (5 ** 2 < 20)
+	print "shit";
+else
+	print if (true and false) "crap" else 0.1;
 
-# scope
-{
-	var a = 10;
-	{
-		var a = 42;
-		print a;
-	}
-	print a;
-}
-print a;
-print "Should output:
-2
-4
-0
-42
-10
-2";

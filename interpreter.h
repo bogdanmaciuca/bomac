@@ -3,6 +3,7 @@
 
 #include "util.h"
 #include "AST.h"
+#include <cmath>
 
 class Environment {
 public:
@@ -95,8 +96,33 @@ void VarDeclStmt::Evaluate() {
 	environment->Define(identifier.lexeme, expr ? expr->Evaluate() : Object(0.0f));
 }
 
+void IfStmt::Evaluate() {
+	if (ObjIsTruthy(condition->Evaluate()))
+		then_branch->Evaluate();
+	else if (else_branch)
+		else_branch->Evaluate();
+}
+
 Object AssignExpr::Evaluate() {
 	return environment->Assign(identifier, expr->Evaluate());
+}
+
+Object IfExpr::Evaluate() {
+	if (ObjIsTruthy(condition->Evaluate()))
+		return then_branch->Evaluate();
+	else
+		return else_branch->Evaluate();
+}
+
+Object LogicExpr::Evaluate() {
+	Object l = left->Evaluate();
+	if (op.type == TokenType::OR) {
+		if (ObjIsTruthy(l)) return left;
+	}
+	else {
+		if (!ObjIsTruthy(l)) return left;
+	}
+	return right->Evaluate();
 }
 
 Object BinaryExpr::Evaluate() {
@@ -118,6 +144,9 @@ Object BinaryExpr::Evaluate() {
 	case TokenType::SLASH:
 		CheckNumberOperands(op, l, r);
 		return std::get<TYPE_NUMBER>(l) / std::get<TYPE_NUMBER>(r);
+	case TokenType::STAR_STAR:
+		CheckNumberOperands(op, l, r);
+		return std::pow(std::get<TYPE_NUMBER>(l), std::get<TYPE_NUMBER>(r));
 
 	case TokenType::EQUAL_EQUAL:
 		return ObjEqual(l, r);

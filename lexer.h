@@ -20,9 +20,10 @@ public:
 		mKeywords["false"] = TokenType::FALSE;
 		mKeywords["and"] = TokenType::AND;
 		mKeywords["or"] = TokenType::OR;
-		mKeywords["if"] = TokenType::AND;
-		mKeywords["while"] = TokenType::OR;
-		mKeywords["for"] = TokenType::OR;
+		mKeywords["if"] = TokenType::IF;
+		mKeywords["else"] = TokenType::ELSE;
+		mKeywords["while"] = TokenType::WHILE;
+		mKeywords["for"] = TokenType::FOR;
 		mKeywords["class"] = TokenType::CLASS;
 		mKeywords["fn"] = TokenType::FN;
 		mKeywords["return"] = TokenType::RETURN;
@@ -141,6 +142,9 @@ private:
 		if (AtEnd() || c != mSource[mCurrent]) return false;
 		Advance();
 		return true;
+	}
+	void Error(u16 line, const std::string& message) {
+		std::cout << "Error on line " << line << ": " << message << "\n";
 	}
 };
 #endif

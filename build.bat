@@ -1,0 +1,1 @@
+cls && g++ -std=c++17 -o bomac main.cpp

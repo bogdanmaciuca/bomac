@@ -1,5 +1,6 @@
 /*
 TODO:
+- better error handling (remember exact position of the character and output line to pinpoint it, panic mode recovery)
 */
 
 #include "util.h"
@@ -27,12 +28,11 @@ int main(int argc, char **argv) {
 	if (argc > 1) {
 		lexer.Lex(ReadFile(argv[1]));
 		parser.Parse(lexer.tokens);
-		//for(int i = 0; i < parser.nodes.size(); i++) {
-		//	std::cout << i << ": " << parser.nodes[i]->str() << "\n";
-		//}
+		
 		if (!parser.HadError()) {
-			for(int i = 0; i < parser.nodes.size(); i++) {
-				parser.nodes[i]->evaluate();
+			for(int i = 0; i < parser.statements.size(); i++) {
+				parser.statements[i]->Evaluate();
+				parser.statements[i]->Destroy();
 			}
 		}
 	}
@@ -43,15 +43,19 @@ int main(int argc, char **argv) {
 			std::getline(std::cin, input);
 			lexer.Lex(input);
 			parser.Parse(lexer.tokens);
-			//for(int i = 0; i < parser.nodes.size(); i++) {
-			//	std::cout << parser.nodes[i]->str() << "\n";
+			//for(auto tok : lexer.tokens) {
+			//	std::cout << tok.str() << "\n";
 			//}
 			if (!parser.HadError()) {
-				for(int i = 0; i < parser.nodes.size(); i++) {
-					parser.nodes[i]->evaluate();
+				for(int i = 0; i < parser.statements.size(); i++) {
+					std::cout << parser.statements[i]->Str() << "\n";
+					parser.statements[i]->Evaluate();
+					parser.statements[i]->Destroy();
 				}
 			}
 		}
 	}
+	if (environment)
+		environment->Destroy();
 	return 0;
 }

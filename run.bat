@@ -1,1 +1,0 @@
-cls && g++ -o bomac main.cpp && bomac

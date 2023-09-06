@@ -4,50 +4,162 @@
 #include "util.h"
 #include "AST.h"
 
-static std::unordered_map<std::string, float> var_stack;
+class Environment {
+public:
+	Environment* enclosing = 0;
+	Environment() {}
+	Environment(Environment* enclosing) : enclosing(enclosing) {}
+	std::unordered_map<std::string, Object> values;
+	void Destroy() {
+		if (enclosing)
+			enclosing->Destroy();
+	}
+	Object Get(const Token& name) {
+		if (values.count(name.lexeme))
+			return values[name.lexeme];
+		
+		if (enclosing)
+			return enclosing->Get(name);
 
-float PrintNode::evaluate() {
-	float expr_val = expr->evaluate();
-	std::cout << expr_val << "\n";
-	return 0;
+		ErrorRT(name.line, "Undefined variable '" + name.lexeme + "'.");
+		return Object(0.0f); // Unreachable
+	}
+	void Define(std::string name, Object value) {
+		values[name] = value;
+	}
+	Object Assign(Token name, Object value) {
+		if (values.count(name.lexeme)) {
+			values[name.lexeme] = value;
+			return value;
+		}
+		if (enclosing) {
+			enclosing->Assign(name, value);
+			return value;
+		}
+		ErrorRT(name.line, "Undefined variable '" + name.lexeme + "'.");
+	}
+};
+
+Environment* environment = new Environment();
+
+bool ObjIsTruthy(Object obj) {
+	switch(obj.index()) {
+	case TYPE_BOOLEAN:
+		return std::get<TYPE_BOOLEAN>(obj);
+	case TYPE_NUMBER:
+		return std::get<TYPE_NUMBER>(obj) != 0;
+	case TYPE_STRING:
+		return std::get<TYPE_STRING>(obj).size() != 0;
+	}
+	return false; // Unreachable
 }
-float AssignNode::evaluate() {
-	var_stack[identifier] = expr->evaluate();
-	return 0;
+
+bool ObjEqual(Object l, Object r) {
+	if (l.index() != r.index()) return false;
+	if (l.index() == TYPE_BOOLEAN && r.index() == TYPE_BOOLEAN)
+		return std::get<TYPE_BOOLEAN>(l) == std::get<TYPE_BOOLEAN>(r);
+	if (l.index() == TYPE_NUMBER && r.index() == TYPE_NUMBER)
+		return std::get<TYPE_NUMBER>(l) == std::get<TYPE_NUMBER>(r);
+	if (l.index() == TYPE_STRING && r.index() == TYPE_STRING)
+		return std::get<TYPE_STRING>(l) == std::get<TYPE_STRING>(r);
+	return false;
 }
-float BinaryNode::evaluate() {
-	switch(op) {
+
+void CheckNumberOperand(Token op, Object right) {
+	if (right.index() == TYPE_NUMBER) return;
+	ErrorRT(op.line, "Expected the operand following '-' to be a number.");
+}
+void CheckNumberOperands(Token op, Object left, Object right) {
+	if (left.index() == TYPE_NUMBER && right.index() == TYPE_NUMBER) return;
+	ErrorRT(op.line, "Expected both operands of the '" + op.lexeme + "' operator to be numbers.");
+}
+
+void PrintStmt::Evaluate() {
+	std::cout << ObjToStr(expr->Evaluate()) << "\n";
+}
+
+void BlockStmt::Evaluate() {
+	Environment *prev = environment;
+	environment = new Environment;
+	for (Stmt* stmt : statements)
+		stmt->Evaluate();
+	environment = prev;
+}
+
+void ExprStmt::Evaluate() {
+	expr->Evaluate();
+}
+
+void VarDeclStmt::Evaluate() {
+	environment->Define(identifier.lexeme, expr ? expr->Evaluate() : Object(0.0f));
+}
+
+Object AssignExpr::Evaluate() {
+	return environment->Assign(identifier, expr->Evaluate());
+}
+
+Object BinaryExpr::Evaluate() {
+	Object l = left->Evaluate();
+	Object r = right->Evaluate();
+
+	switch(op.type) {
 	case TokenType::PLUS:
-		return left->evaluate() + right->evaluate();
+		if (l.index() == TYPE_NUMBER && r.index() == TYPE_NUMBER)
+			return std::get<TYPE_NUMBER>(l) + std::get<TYPE_NUMBER>(r);
+		if (l.index() == TYPE_STRING && r.index() == TYPE_STRING)
+			return std::get<TYPE_STRING>(l) + std::get<TYPE_STRING>(r);
 	case TokenType::MINUS:
-		return left->evaluate() - right->evaluate();
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) - std::get<TYPE_NUMBER>(r);
 	case TokenType::STAR:
-		return left->evaluate() * right->evaluate();
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) * std::get<TYPE_NUMBER>(r);
 	case TokenType::SLASH:
-		return left->evaluate() / right->evaluate();
-	default:
-		return 0;
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) / std::get<TYPE_NUMBER>(r);
+
+	case TokenType::EQUAL_EQUAL:
+		return ObjEqual(l, r);
+	case TokenType::BANG_EQUAL:
+		return !ObjEqual(l, r);
+	case TokenType::LESS:
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) < std::get<TYPE_NUMBER>(r);
+	case TokenType::LESS_EQUAL:
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) <= std::get<TYPE_NUMBER>(r);
+	case TokenType::GREATER:
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) > std::get<TYPE_NUMBER>(r);
+	case TokenType::GREATER_EQUAL:
+		CheckNumberOperands(op, l, r);
+		return std::get<TYPE_NUMBER>(l) >= std::get<TYPE_NUMBER>(r);
 	}
+	return Object(); // Unreachable
 }
-float GroupingNode::evaluate() {
-	return expr->evaluate();
+
+Object VarExpr::Evaluate() {
+	return environment->Get(identifier);
 }
-float LiteralNode::evaluate() {
-	return value;
-}
-float UnaryNode::evaluate() {
-	switch(op) {
+
+Object UnaryExpr::Evaluate() {
+	Object r = right->Evaluate();
+	switch(op.type) {
+	case TokenType::BANG:
+		return !ObjIsTruthy(r);
 	case TokenType::MINUS:
-		return -right->evaluate();
-	default:
-		return 0;
+		CheckNumberOperand(op, r);
+		return -std::get<TYPE_NUMBER>(r);
 	}
+	return Object(); // Unreachable
 }
-float VarNode::evaluate() {
-	if (var_stack.count(identifier.lexeme))
-		return var_stack[identifier.lexeme];
-	Error(identifier.line, "Runtime error: Undefined identifier: '" + identifier.lexeme + "'");
-	exit(0);
+
+Object GroupExpr::Evaluate() {
+	return expr->Evaluate();
+}
+
+Object LiteralExpr::Evaluate() {
+	return value;
 }
 
 #endif

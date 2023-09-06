@@ -14,8 +14,18 @@ public:
 		mLine = 1;
 		mHadError = false;
 		tokens.clear();
-		mKeywords["int"] = TokenType::INT;
+		mKeywords["var"] = TokenType::VAR;
 		mKeywords["print"] = TokenType::PRINT;
+		mKeywords["true"] = TokenType::TRUE;
+		mKeywords["false"] = TokenType::FALSE;
+		mKeywords["and"] = TokenType::AND;
+		mKeywords["or"] = TokenType::OR;
+		mKeywords["if"] = TokenType::AND;
+		mKeywords["while"] = TokenType::OR;
+		mKeywords["for"] = TokenType::OR;
+		mKeywords["class"] = TokenType::CLASS;
+		mKeywords["fn"] = TokenType::FN;
+		mKeywords["return"] = TokenType::RETURN;
 		ScanTokens();
 		return mHadError;
 	}
@@ -44,14 +54,22 @@ private:
 			case '#':
 				while (Peek() != '\n' && !AtEnd()) Advance();
 				break;
-			case '=': AddToken(TokenType::EQUAL); break;
+			case '!': AddToken(Match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
+			case '=': AddToken(Match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL); break;
 			case '+': AddToken(TokenType::PLUS); break;
-			case '-': AddToken(TokenType::MINUS); break;
-			case '*': AddToken(TokenType::STAR); break;
+			case '-': AddToken(Match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS); break;
+			case '*': AddToken(Match('*') ? TokenType::STAR_STAR : TokenType::STAR); break;
+			case '<': AddToken(Match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
+			case '>': AddToken(Match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER); break;
 			case '/': AddToken(TokenType::SLASH); break;
-			case '(': AddToken(TokenType::LEFT_PARAN); break;
-			case ')': AddToken(TokenType::RIGHT_PARAN); break;
-			case ';': AddToken(TokenType::COLON); break;
+			case '(': AddToken(TokenType::LEFT_PAREN); break;
+			case ')': AddToken(TokenType::RIGHT_PAREN); break;
+			case '[': AddToken(TokenType::LEFT_BRACKET); break;
+			case ']': AddToken(TokenType::RIGHT_BRACKET); break;
+			case '{': AddToken(TokenType::LEFT_BRACE); break;
+			case '}': AddToken(TokenType::RIGHT_BRACE); break;
+			case ';': AddToken(TokenType::SEMICOLON); break;
+			case '"': String(); break;
 			default:
 				if (isdigit(c))
 					Number();
@@ -71,7 +89,22 @@ private:
 			Advance();
 			while (isdigit(Peek())) Advance();
 		}
-		AddToken(TokenType::NUMBER, std::stof(mSource.substr(mStart, mCurrent-mStart)));
+		AddToken(TokenType::NUMBER, Object(std::stof(mSource.substr(mStart, mCurrent-mStart))));
+	}
+	void String() {
+		while (Peek() != '"' && !AtEnd()) {
+			if (Peek() == '\n')
+				mLine++;
+			Advance();
+		}
+		if (AtEnd()) {
+			Error(mLine, "Unterminated string.");
+			return;
+		}
+		Advance();
+		
+		std::string value = mSource.substr(mStart + 1, mCurrent - mStart - 2);
+		AddToken(TokenType::STRING, value);
 	}
 	void Identifier() {
 		while (isalnum(Peek()) || Peek() == '_') Advance();
@@ -82,7 +115,7 @@ private:
 		else
 			AddToken(iter->second);
 	}
-	void AddToken(TokenType type, float literal = 0) {
+	void AddToken(TokenType type, Object literal = Object(0.0f)) {
 		Token tok;
 		tok.type = type;
 		tok.lexeme = mSource.substr(mStart, mCurrent - mStart);

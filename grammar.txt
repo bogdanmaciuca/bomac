@@ -1,8 +1,20 @@
-print    -> "print" expr ";"
-assign   -> IDENTIFIER "=" expr ";"
-expr     -> term
-term     -> factor (("+" | "-") factor)*
-factor   -> unary (("*" | "/") unary)*
-unary    -> ("!" | "-") (unary | primary)
-primary  -> NUMBER | IDENTIFIER | grouping
-grouping -> "(" expr ")"
+program    -> decl* EOF
+
+decl       -> varDecl | statement
+stmt       -> block | exprStmt | printStmt
+block      -> "{" decl* "}"
+
+varDecl    -> "var" IDENTIFIER ("=" expr)? ";"
+
+exprStmt   -> expr ';'
+printStmt  -> "print" expr ";"
+
+expression -> assign
+assign     -> IDENTIFIER "=" expr assign | equality
+equality   -> comparison ( ("!=" | "==") comparison )*
+comparison -> term ( (">" | ">=" | "<" | "<=") term )*
+term       -> factor ( ("-" | "+") factor )*
+factor     -> power ( ("/" | "*") power )*
+power      -> unary ( ("**") unary )*
+unary      -> ( "!" | "-" ) unary | primary
+primary    -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"

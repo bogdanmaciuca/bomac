@@ -12,109 +12,166 @@ private:
 	bool had_error = false;
 public:
 	bool HadError() { return had_error; }
-	std::vector<Node*> nodes;
-	// TODO: eliminate copying of the vector | properly free the memory
-	void Parse(std::vector<Token> toks) {
+	std::vector<Stmt*> statements;
+	// TODO: eliminate copying of the vector
+	void Parse(const std::vector<Token> &toks) {
 		tokens = toks;
 		current = 0;
 		had_error = false;
-		nodes.clear();
+		statements.clear();
 		while(!AtEnd()) {
-			ParseExpr();
+			statements.push_back(Declaration());
+			if (had_error) Synchronize();
 		}
 	}
 private:
-	Node* Print() {
-		PrintNode *print = new PrintNode;
-		print->expr = Expr();
-		Consume(TokenType::COLON, "Expected ';' after statement");
-		return (Node*)print;
+	void Synchronize() {
+		Advance();
+		while (!AtEnd()) {
+			if (Prev().type == TokenType::SEMICOLON)
+				return;
+			switch (Peek().type) {
+			case TokenType::CLASS:
+			case TokenType::FN:
+			case TokenType::VAR:
+			case TokenType::FOR:
+			case TokenType::IF:
+			case TokenType::WHILE:
+			case TokenType::PRINT:
+			case TokenType::RETURN:
+				return;
+			default:
+				break;
+			}
+			Advance();
+		}
 	}
-	Node* Expr() {
-		return Term();
+	Expr* Expression() {
+		return Assignment();
 	}
-	Node* Term() {
-		Node* left = Factor();
-		BinaryNode* expr = (BinaryNode*)left;
-		while (Match({TokenType::MINUS, TokenType::PLUS})) {
-			Token op = Prev();
-			Node* right = Factor();
-			expr = new BinaryNode();
-			expr->left = left;
-			expr->op = op.type;
-			expr->right = right;
-			left = expr;
+	Expr* Assignment() {
+		Expr *expr = Equality();
+
+		if (Match({TokenType::EQUAL})) {
+			Token equals = Prev();
+			Expr *value = Assignment();
+
+			if (expr->Type() == NodeType::VAR_EXPR) {
+				Token identifier = ((VarExpr*)expr)->identifier;
+				return new AssignExpr(identifier, value);
+			}
+
+			Error(equals.line, "Invalid l-value."); 
 		}
 		return expr;
 	}
-	Node* Factor() {
-		Node* left = Unary();
-		BinaryNode* expr = (BinaryNode*)left;
+	Expr* Equality() {
+		Expr* expr = Comparison();
+		while (Match({TokenType::EQUAL_EQUAL, TokenType::BANG_EQUAL})) {
+			Token op = Prev();
+			Expr* right = Comparison();
+			expr = new BinaryExpr(op, expr, right);
+		}
+		return expr;
+	}
+	Expr* Comparison() {
+		Expr* expr = Term();
+		while (Match({TokenType::LESS, TokenType::GREATER, TokenType::LESS_EQUAL, TokenType::GREATER_EQUAL})) {
+			Token op = Prev();
+			Expr* right = Term();
+			expr = new BinaryExpr(op, expr, right);
+		}
+		return expr;
+	}
+	Expr* Term() {
+		Expr* expr = Factor();
+		while (Match({TokenType::PLUS, TokenType::MINUS})) {
+			Token op = Prev();
+			Expr* right = Factor();
+			expr = new BinaryExpr(op, expr, right);
+		}
+		return expr;
+	}
+	Expr* Factor() {
+		Expr* expr = Power();
 		while (Match({TokenType::STAR, TokenType::SLASH})) {
 			Token op = Prev();
-			Node* right = Unary();
-			expr = new BinaryNode();
-			expr->left = left;
-			expr->op = op.type;
-			expr->right = right;
-			left = expr;
+			Expr* right = Power();
+			expr = new BinaryExpr(op, expr, right);
 		}
 		return expr;
 	}
-	Node* Unary() {
-		if (Match({TokenType::MINUS})) {
+	Expr* Power() {
+		Expr* expr = Unary();
+		while (Match({TokenType::STAR_STAR})) {
 			Token op = Prev();
-			Node* right = Unary();
-			UnaryNode* unary = new UnaryNode;
-			unary->op = op.type;
-			unary->right = right;
-			return unary;
-    	}
+			Expr* right = Power();
+			expr = new BinaryExpr(op, expr, right);
+		}
+		return expr;
+	}
+	Expr* Unary() {
+		if (Match({TokenType::BANG, TokenType::MINUS})) {
+			Token op = Prev();
+			Expr* right = Unary();
+			return new UnaryExpr(op, right);
+		}
 		return Primary();
 	}
-	Node* Primary() {
-		if (Match({TokenType::NUMBER})) {
-			LiteralNode* literal = new LiteralNode;
-			literal->value = Prev().literal;
-			return literal;
+	Expr* Primary() {
+		if (Match({TokenType::FALSE})) return new LiteralExpr(false);
+		if (Match({TokenType::TRUE})) return new LiteralExpr(true);
+
+		if (Match({TokenType::NUMBER, TokenType::STRING}))
+			return new LiteralExpr(Prev().literal);
+		
+		if (Match({TokenType::IDENTIFIER}))
+			return new VarExpr(Prev());
+
+		if (Match({TokenType::LEFT_PAREN})) {
+			Expr *expr = Expression();
+			Consume(TokenType::RIGHT_PAREN, "Expected ')' after expression.");
+			return new GroupExpr(expr);
 		}
-		if (Match({TokenType::IDENTIFIER})) {
-			VarNode* var = new VarNode;
-			var->identifier = Prev();
-			return var;
-		}
-		if (Match({TokenType::LEFT_PARAN})) {
-			Node* expr = Expr();
-			Consume(TokenType::RIGHT_PARAN, "Expected ')' after expression");
-			GroupingNode* grouping = new GroupingNode;
-			grouping->expr = expr;
-			return grouping;
-		}
-		Advance();
-		Error(Prev().line, "Unexpected token: '" + Prev().lexeme + "'");
-		had_error = true;
-		return 0;
+		return 0; // Unreachable unless an error is made by the user
 	}
-	Node* Assign() {
-		AssignNode* assign = new AssignNode;
-		assign->identifier = Prev().lexeme;
-		Consume(TokenType::EQUAL, "Expected an assignment");
-		assign->expr = Expr();
-		Consume(TokenType::COLON, "Expected ';' after statement");
-		return assign;
+	Stmt* Declaration() {
+		if (Match({TokenType::VAR}))
+			return VarDecl();
+		return Statement();
 	}
-	void ParseExpr() {
-		Token tok = Advance();
-		switch(tok.type) {
-		case TokenType::PRINT:
-			nodes.push_back((Node*)Print());
-			break;
-		case TokenType::IDENTIFIER:
-			nodes.push_back((Node*)Assign());
-			break;
-		default:
-			break;
-		}
+	Stmt* VarDecl() {
+		Consume(TokenType::IDENTIFIER, "Expected an identifier.");
+		Token identifier = Prev();
+		Expr* expr = 0;
+		if (Match({TokenType::EQUAL}))
+			expr = Expression();
+		Consume(TokenType::SEMICOLON, "Expected ';' after variable declaration");
+		return new VarDeclStmt(identifier, expr);
+	}
+	Stmt* Statement() {
+		if (Match({TokenType::PRINT}))
+			return Print();
+		if (Match({TokenType::LEFT_BRACE}))
+			return new BlockStmt(Block());
+		return ExpressionStmt();
+	}
+	std::vector<Stmt*> Block() {
+		std::vector<Stmt*> statements;
+		while (!Check(TokenType::RIGHT_BRACE) && !AtEnd())
+			statements.push_back(Declaration());
+		Consume(TokenType::RIGHT_BRACE, "Expected '}' after block.");
+	    return statements;
+	}
+	Stmt* Print() {
+		Expr* expr = Expression();
+		Consume(TokenType::SEMICOLON, "Expected ';' after print statement.");
+		return new PrintStmt(expr);
+	}
+	Stmt* ExpressionStmt() {
+		Expr *expr = Expression();
+		Consume(TokenType::SEMICOLON, "Expected ';' after expression.");
+		return new ExprStmt(expr);
 	}
 	bool AtEnd() {
 		return Peek().type == TokenType::EOF;
@@ -144,11 +201,12 @@ private:
 		}
 		return false;
 	}
-	Token Consume(TokenType type, const std::string& message) {
+	Token Consume(TokenType type, const std::string& message, bool panic_mode = true) {
 		if (Check(type))
 			return Advance();
 		Error(Peek().line, message);
 		had_error = true;
+		if (panic_mode) Synchronize();
 		return Token();
 	}
 };

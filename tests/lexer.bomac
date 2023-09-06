@@ -1,0 +1,6 @@
+class Bob {
+	var field;
+	fn function() {
+		return field == field**field>=field;
+	}
+};

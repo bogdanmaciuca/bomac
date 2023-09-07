@@ -1,5 +1,6 @@
 /*
 TODO:
+- while and for loops (maybe have ranges?)
 */
 
 #include "util.h"

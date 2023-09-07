@@ -103,6 +103,43 @@ void IfStmt::Evaluate() {
 		else_branch->Evaluate();
 }
 
+void WhileStmt::Evaluate() {
+	while (ObjIsTruthy(condition->Evaluate())) {
+		try {
+			statement->Evaluate();
+		} catch (BreakException e) {
+			break;
+		} catch (ContinueException e) {
+			continue;
+		}
+	}
+}
+
+void ForStmt::Evaluate() {
+	Environment *prev = environment;
+	environment = new Environment(environment);
+
+	for(initializer->Evaluate(); ObjIsTruthy(condition->Evaluate()); increment->Evaluate()) {
+		try {
+			body->Evaluate();
+		} catch (BreakException e) {
+			break;
+		} catch (ContinueException e) {
+			continue;
+		}
+	}
+
+	environment = prev;
+}
+
+void BreakStmt::Evaluate() {
+	throw BreakException();
+}
+
+void ContinueStmt::Evaluate() {
+	throw ContinueException();
+}
+
 Object AssignExpr::Evaluate() {
 	return environment->Assign(identifier, expr->Evaluate());
 }
@@ -144,6 +181,9 @@ Object BinaryExpr::Evaluate() {
 	case TokenType::SLASH:
 		CheckNumberOperands(op, l, r);
 		return std::get<TYPE_NUMBER>(l) / std::get<TYPE_NUMBER>(r);
+	case TokenType::MODULO:
+		CheckNumberOperands(op, l, r);
+		return (float)((i32)std::floor(std::get<TYPE_NUMBER>(l)) % (i32)std::floor(std::get<TYPE_NUMBER>(r)));
 	case TokenType::STAR_STAR:
 		CheckNumberOperands(op, l, r);
 		return std::pow(std::get<TYPE_NUMBER>(l), std::get<TYPE_NUMBER>(r));
@@ -173,13 +213,25 @@ Object VarExpr::Evaluate() {
 }
 
 Object UnaryExpr::Evaluate() {
-	Object r = right->Evaluate();
+	Object e = expr->Evaluate();
 	switch(op.type) {
 	case TokenType::BANG:
-		return !ObjIsTruthy(r);
+		return !ObjIsTruthy(e);
 	case TokenType::MINUS:
-		CheckNumberOperand(op, r);
-		return -std::get<TYPE_NUMBER>(r);
+		CheckNumberOperand(op, e);
+		return -std::get<TYPE_NUMBER>(e);
+	case TokenType::PLUS_PLUS:
+		if (expr->Type() == NodeType::VAR_EXPR) {
+			CheckNumberOperand(op, e);
+			Object old = e;
+			e = environment->Assign(
+				((VarExpr*)expr)->identifier,
+				std::floor(std::get<TYPE_NUMBER>(e)) + 1);
+			if (postfix) return old;
+			else return e;
+		}
+		else
+			ErrorRT(op.line, "Expressions followed by '++' or '--' must be variables.");
 	}
 	return Object(); // Unreachable
 }

@@ -24,6 +24,8 @@ public:
 		mKeywords["else"] = TokenType::ELSE;
 		mKeywords["while"] = TokenType::WHILE;
 		mKeywords["for"] = TokenType::FOR;
+		mKeywords["break"] = TokenType::BREAK;
+		mKeywords["continue"] = TokenType::CONTINUE;
 		mKeywords["class"] = TokenType::CLASS;
 		mKeywords["fn"] = TokenType::FN;
 		mKeywords["return"] = TokenType::RETURN;
@@ -57,12 +59,17 @@ private:
 				break;
 			case '!': AddToken(Match('=') ? TokenType::BANG_EQUAL : TokenType::BANG); break;
 			case '=': AddToken(Match('=') ? TokenType::EQUAL_EQUAL : TokenType::EQUAL); break;
-			case '+': AddToken(TokenType::PLUS); break;
-			case '-': AddToken(Match('>') ? TokenType::MINUS_GREATER : TokenType::MINUS); break;
+			case '+': AddToken(Match('+') ? TokenType::PLUS_PLUS : TokenType::PLUS); break;
+			case '-':
+				if (Match('-')) AddToken(TokenType::MINUS_MINUS);
+				else if (Match('>')) AddToken(TokenType::MINUS_GREATER);
+				else AddToken(TokenType::MINUS);
+				break;
 			case '*': AddToken(Match('*') ? TokenType::STAR_STAR : TokenType::STAR); break;
+			case '/': AddToken(TokenType::SLASH); break;
+			case '%': AddToken(TokenType::MODULO); break;
 			case '<': AddToken(Match('=') ? TokenType::LESS_EQUAL : TokenType::LESS); break;
 			case '>': AddToken(Match('=') ? TokenType::GREATER_EQUAL : TokenType::GREATER); break;
-			case '/': AddToken(TokenType::SLASH); break;
 			case '(': AddToken(TokenType::LEFT_PAREN); break;
 			case ')': AddToken(TokenType::RIGHT_PAREN); break;
 			case '[': AddToken(TokenType::LEFT_BRACKET); break;

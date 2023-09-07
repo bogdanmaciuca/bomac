@@ -10,6 +10,10 @@ enum class NodeType {
 	EXPR_STMT,
 	VAR_DECL_STMT,
 	IF_STMT,
+	WHILE_STMT,
+	FOR_STMT,
+	BREAK_STMT,
+	CONTINUE_STMT,
 	ASSIGN_EXPR,
 	IF_EXPR,
 	LOGIC_EXPR,
@@ -120,11 +124,67 @@ public:
 		if (else_branch) { else_branch->Destroy(); delete else_branch; }
 	}
 	std::string Str() {
-		return condition->Str();
+		return "(if " + condition->Str() + " " + then_branch->Str() + (else_branch ? " " + else_branch->Str() : "") + ")";
 	}
 	void Evaluate();
 };
 
+class WhileStmt : public Stmt {
+public:
+	Expr* condition = 0;
+	Stmt* statement = 0;
+	WhileStmt(Expr* condition, Stmt* statement)
+		: condition(condition), statement(statement) {}
+	NodeType Type() { return NodeType::WHILE_STMT; }
+	void Destroy() {
+		if (condition) { condition->Destroy(); delete condition; }
+		if (statement) { statement->Destroy(); delete statement; }
+	}
+	std::string Str() {
+		return "(while " + condition->Str() + " " + statement->Str() + ")";
+	}
+	void Evaluate();
+};
+
+class ForStmt : public Stmt {
+public:
+	Stmt* initializer = 0;
+	Expr* condition = 0;
+	Expr* increment = 0;
+	Stmt* body = 0;
+	ForStmt(Stmt* initializer, Expr* condition, Expr* increment, Stmt* body)
+		: initializer(initializer), condition(condition), increment(increment), body(body) {}
+	NodeType Type() { return NodeType::FOR_STMT; }
+	void Destroy() {
+		if (initializer) { initializer->Destroy(); delete initializer; }
+		if (condition) { condition->Destroy(); delete condition; }
+		if (increment) { increment->Destroy(); delete increment; }
+		if (body) { body->Destroy(); delete body; }
+	}
+	std::string Str() {
+		return "(for " +
+			(initializer ? initializer->Str() : ";") + " " +
+			(condition ? condition->Str() : ";") + " " +
+			(increment ? increment->Str() : ";") + ")";
+	}
+	void Evaluate();
+};
+
+class BreakStmt : public Stmt {
+public:
+	NodeType Type() { return NodeType::BREAK_STMT; }
+	void Destroy() {}
+	std::string Str() { return "(break)"; }
+	void Evaluate();
+};
+
+class ContinueStmt : public Stmt {
+public:
+	NodeType Type() { return NodeType::CONTINUE_STMT; }
+	void Destroy() {}
+	std::string Str() { return "(continue)"; }
+	void Evaluate();
+};
 
 class AssignExpr : public Expr {
 public:
@@ -216,16 +276,18 @@ public:
 class UnaryExpr : public Expr {
 public:
 	Token op;
-	Expr* right = 0;
-	UnaryExpr(Token op, Expr* right) : op(op), right(right) {}
+	Expr* expr = 0;
+	bool postfix = false;
+	UnaryExpr(Token op, Expr* expr, bool postfix = false)
+		: op(op), expr(expr), postfix(postfix) {}
 	NodeType Type() { return NodeType::UNARY_EXPR; }
 	void Destroy() {
-		if (right == 0) return;
-		right->Destroy();
-		delete right;
+		if (expr == 0) return;
+		expr->Destroy();
+		delete expr;
 	}
 	std::string Str() {
-		return "(" + op.TypeStr() + " " + right->Str() + ")";
+		return "(" + op.TypeStr() + " " + expr->Str() + ")";
 	}
 	Object Evaluate();
 };

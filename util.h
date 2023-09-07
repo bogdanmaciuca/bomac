@@ -44,4 +44,7 @@ std::string ObjToStr(const Object& obj) {
 	}
 }
 
+class BreakException : public std::exception {};
+class ContinueException : public std::exception {};
+
 #endif

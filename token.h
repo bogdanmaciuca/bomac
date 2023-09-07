@@ -6,7 +6,9 @@
 
 enum class TokenType {
 	EOF = 0,
-	BANG, EQUAL, PLUS, MINUS, STAR, SLASH, STAR_STAR,
+	BANG, EQUAL, PLUS, MINUS,
+	STAR, SLASH, MODULO, STAR_STAR,
+	PLUS_PLUS, MINUS_MINUS,
 
 	EQUAL_EQUAL, BANG_EQUAL, LESS,
 	GREATER, LESS_EQUAL, GREATER_EQUAL,
@@ -16,7 +18,7 @@ enum class TokenType {
 	LEFT_BRACKET, RIGHT_BRACKET,
 	LEFT_BRACE, RIGHT_BRACE,
 
-	IDENTIFIER, SEMICOLON, IF, ELSE, WHILE, FOR,
+	IDENTIFIER, SEMICOLON, IF, ELSE, WHILE, FOR, BREAK, CONTINUE,
 	VAR, PRINT, TRUE, FALSE, AND, OR,
 	CLASS, FN, RETURN, NUMBER, STRING
 };
@@ -36,7 +38,10 @@ struct Token {
 			case TokenType::MINUS: type_str = "MINUS"; break;
 			case TokenType::STAR: type_str = "STAR"; break;
 			case TokenType::SLASH: type_str = "SLASH"; break;
+			case TokenType::MODULO: type_str = "MODULO"; break;
 			case TokenType::STAR_STAR: type_str = "STAR_STAR"; break;
+			case TokenType::PLUS_PLUS: type_str = "PLUS_PLUS"; break;
+			case TokenType::MINUS_MINUS: type_str = "MINUS_MINUS"; break;
 			case TokenType::EQUAL_EQUAL: type_str = "EQUAL_EQUAL"; break;
 			case TokenType::BANG_EQUAL: type_str = "BANG_EQUAL"; break;
 			case TokenType::LESS: type_str = "LESS"; break;
@@ -56,6 +61,8 @@ struct Token {
 			case TokenType::ELSE: type_str = "ELSE"; break;
 			case TokenType::WHILE: type_str = "WHILE"; break;
 			case TokenType::FOR: type_str = "FOR"; break;
+			case TokenType::BREAK: type_str = "BREAK"; break;
+			case TokenType::CONTINUE: type_str = "CONTINUE"; break;
 			case TokenType::PRINT: type_str = "PRINT"; break;
 			case TokenType::NUMBER: type_str = "NUMBER"; break;
 			case TokenType::STRING: type_str = "STRING"; break;

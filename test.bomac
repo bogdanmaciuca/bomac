@@ -1,5 +1,0 @@
-if (5 ** 2 < 20)
-	print "shit";
-else
-	print if (true and false) "crap" else 0.1;
-

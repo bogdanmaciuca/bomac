@@ -11,6 +11,7 @@ private:
 	std::vector<Token> tokens;
 	u32 current = 0;
 	bool had_error = false;
+	u8 loop_count = 0; // To prevent break and continue statements from appearing outside a loop
 public:
 	bool HadError() { return had_error; }
 	std::vector<Stmt*> statements;
@@ -23,8 +24,7 @@ public:
 		while(!AtEnd()) {
 			try {
 				statements.push_back(Declaration());
-			}
-			catch (std::exception e) {
+			} catch (std::exception e) {
 				Synchronize();
 			}
 		}
@@ -131,7 +131,7 @@ private:
 	}
 	Expr* Factor() {
 		Expr* expr = Power();
-		while (Match({TokenType::STAR, TokenType::SLASH})) {
+		while (Match({TokenType::STAR, TokenType::SLASH, TokenType::MODULO})) {
 			Token op = Prev();
 			Expr* right = Power();
 			expr = new BinaryExpr(op, expr, right);
@@ -153,7 +153,22 @@ private:
 			Expr* right = Unary();
 			return new UnaryExpr(op, right);
 		}
-		return Primary();
+		return Prefix();
+	}
+	Expr* Prefix() {
+		if (Match({TokenType::PLUS_PLUS, TokenType::MINUS_MINUS})) {
+			Token op = Prev();
+			Expr* expr = Primary();
+			return new UnaryExpr(op, expr, false);
+		}
+
+		return Postfix();
+	}
+	Expr* Postfix() {
+		Expr* expr = Primary();
+		if (Match({TokenType::PLUS_PLUS, TokenType::MINUS_MINUS}))
+			return new UnaryExpr(Prev(), expr, true);
+		return expr;
 	}
 	Expr* Primary() {
 		if (Match({TokenType::FALSE})) return new LiteralExpr(false);
@@ -193,10 +208,18 @@ private:
 	Stmt* Statement() {
 		if (Match({TokenType::PRINT}))
 			return Print();
-		if (Match({TokenType::LEFT_BRACE}))
+		else if (Match({TokenType::LEFT_BRACE}))
 			return new BlockStmt(Block());
-		if (Match({TokenType::IF}))
+		else if (Match({TokenType::IF}))
 			return If();
+		else if (Match({TokenType::WHILE}))
+			return While();
+		else if (Match({TokenType::FOR}))
+			return For();
+		else if (Match({TokenType::BREAK}))
+			return Break();
+		else if (Match({TokenType::CONTINUE}))
+			return Continue();
 
 		return ExpressionStmt();
 	}
@@ -229,6 +252,54 @@ private:
 		
 		return new IfStmt(condition, then_branch, else_branch);
 	}
+	Stmt* While() {
+		loop_count++;
+		Consume(TokenType::LEFT_PAREN, "Expected '(' after 'while'.");
+		Expr* expr = Expression();
+		Consume(TokenType::RIGHT_PAREN, "Expected ')' after condition.");
+		Stmt* stmt = Statement();
+		loop_count--;
+		return new WhileStmt(expr, stmt);
+	}
+	Stmt* For() {
+		loop_count++;
+		Consume(TokenType::LEFT_PAREN, "Expected '(' after 'for'.");
+		
+		Stmt* initializer;
+		if (Match({TokenType::SEMICOLON}))
+			initializer = 0;
+		else if (Match({TokenType::VAR}))
+			initializer = VarDecl();
+		else
+			initializer = ExpressionStmt();
+		
+		Expr* condition = 0;
+		if (!Check(TokenType::SEMICOLON))
+			condition = Expression();
+		Consume(TokenType::SEMICOLON, "Expected ';' after loop condition.");
+
+		Expr* increment = 0;
+		if (!Check({TokenType::RIGHT_PAREN}))
+			increment = Expression();
+		Consume(TokenType::RIGHT_PAREN, "Expected ')' after for clauses.");
+
+		Stmt* body = Statement();
+
+		loop_count--;
+		return new ForStmt(initializer, condition, increment, body);
+	}
+	Stmt* Break() {
+		if (loop_count == 0)
+			Error(Prev().line, "'break' statements must be inside a loop.");
+		Consume(TokenType::SEMICOLON, "Expected ';' after 'break' statement.");
+		return new BreakStmt;
+	}
+	Stmt* Continue() {
+		if (loop_count == 0)
+			Error(Prev().line, "'continue' statements must be inside a loop.");
+		Consume(TokenType::SEMICOLON, "Expected ';' after 'continue' statement.");
+		return new ContinueStmt;
+	}
 	bool AtEnd() {
 		return Peek().type == TokenType::EOF;
 	}
@@ -259,8 +330,8 @@ private:
 	}
 	void Error(u16 line, const std::string &message) {
 		std::cout << "Error on line " << line << ": " << message << "\n";
-		throw std::runtime_error(message);
 		had_error = true;
+		throw std::runtime_error(message);
 	}
 	Token Consume(TokenType type, const std::string& message) {
 		if (Check(type))

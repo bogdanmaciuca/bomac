@@ -2,11 +2,13 @@ program    -> decl* EOF
 
 decl       -> varDecl | statement
 stmt       -> block | exprStmt | printStmt
-           | ifStmt
+           | ifStmt | whileStmt
 block      -> "{" decl* "}"
 
 ifStmt     -> "if" "(" expr ")" stmt ("else" statement)?
-ifExpr     -> "if" "(" expr ")" expr ("else" expr)?
+whileStmt  -> "while" "(" expr ")" stmt
+forStmt    -> "for" "(" (varDecl | exprStmt | ";")
+              expression? ";" expression? ")" statement?
 
 varDecl    -> "var" IDENTIFIER ("=" expr)? ";"
 
@@ -21,7 +23,8 @@ logic_and  -> equality ("and" equality)*
 equality   -> comparison ( ("!=" | "==") comparison )*
 comparison -> term ( (">" | ">=" | "<" | "<=") term )*
 term       -> factor ( ("-" | "+") factor )*
-factor     -> power ( ("/" | "*") power )*
+factor     -> power ( ("/" | "*" | "%") power )*
 power      -> unary ( ("**") unary )*
-unary      -> ( "!" | "-" ) unary | primary
+unary      -> ( "!" | "-" ) unary | postfix
+postfix    -> primary ( ("++" | "--") )?
 primary    -> NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")"
